@@ -2,9 +2,12 @@ name: Monitor ITLA Solicitud
 
 on:
   schedule:
-    # Corre cada 5 minutos
     - cron: "*/5 * * * *"
-  workflow_dispatch: # Permite correrlo manualmente también
+  workflow_dispatch:
+
+# Permiso para que el workflow pueda hacer commit al repo
+permissions:
+  contents: write
 
 jobs:
   check-status:
@@ -13,34 +16,34 @@ jobs:
     steps:
       - name: Checkout repositorio
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Instalar dependencias Python
+      - name: Instalar dependencias
         run: pip install requests selenium
 
-      - name: Instalar Chrome y ChromeDriver
+      - name: Instalar Chrome
         uses: browser-actions/setup-chrome@v1
-
-      - name: Restaurar estado anterior (caché)
-        uses: actions/cache@v4
-        with:
-          path: last_state.json
-          key: itla-last-state-${{ github.ref }}
-          restore-keys: |
-            itla-last-state-
 
       - name: Ejecutar monitor
         env:
           ITLA_WEBHOOK: ${{ secrets.ITLA_WEBHOOK }}
         run: python monitor.py
 
-      - name: Guardar nuevo estado en caché
-        uses: actions/cache@v4
-        if: always()
-        with:
-          path: last_state.json
-          key: itla-last-state-${{ github.ref }}-${{ github.run_id }}
+      # Si last_state.json cambió, hacer commit para persistir el estado
+      - name: Guardar estado en el repositorio
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add last_state.json
+          if git diff --cached --quiet; then
+            echo "Sin cambios en el estado, no se hace commit."
+          else
+            git commit -m "chore: actualizar last_state.json [skip ci]"
+            git push
+          fi

@@ -12,8 +12,15 @@ from selenium.webdriver.chrome.options import Options
 # ── Configuración ──────────────────────────────────────────────
 URL        = "https://continua.itla.edu.do/consultar-solicitudes"
 CEDULA     = "40212955823"
-WEBHOOK    = os.environ["ITLA_WEBHOOK"]
 STATE_FILE = "last_state.json"
+
+WEBHOOK = os.environ.get("ITLA_WEBHOOK", "")
+if not WEBHOOK:
+    raise SystemExit(
+        "❌ ERROR: El secret ITLA_WEBHOOK está vacío o no existe.\n"
+        "Ve a: Settings → Secrets and variables → Actions → New repository secret\n"
+        "Nombre: ITLA_WEBHOOK   Valor: tu URL de Discord webhook"
+    )
 # ──────────────────────────────────────────────────────────────
 
 
@@ -33,26 +40,22 @@ def scrape():
         driver.get(URL)
         wait = WebDriverWait(driver, 20)
 
-        # Esperar el dropdown y seleccionar "Solicitud por Convocatoria de Becas"
         dropdown_el = wait.until(
             EC.presence_of_element_located((By.TAG_NAME, "select"))
         )
         Select(dropdown_el).select_by_visible_text("Solicitud por Convocatoria de Becas")
 
-        # Escribir la cédula
         input_el = wait.until(
             EC.presence_of_element_located((By.CSS_SELECTOR, "input[type='text'], input[placeholder*='identificaci']"))
         )
         input_el.clear()
         input_el.send_keys(CEDULA)
 
-        # Click en Consultar
         btn = wait.until(
             EC.element_to_be_clickable((By.XPATH, "//button[contains(., 'Consultar')]"))
         )
         btn.click()
 
-        # Esperar resultados (card o mensaje vacío)
         time.sleep(4)
 
         cards = driver.find_elements(By.CSS_SELECTOR, "div.bg-white, div[class*='card'], div[class*='solicitud']")
@@ -64,7 +67,6 @@ def scrape():
                 solicitudes.append(text)
 
         if not solicitudes:
-            # Intentar capturar cualquier contenido relevante del body
             body = driver.find_element(By.TAG_NAME, "body").text
             return {"raw": body, "solicitudes": []}
 
@@ -102,11 +104,11 @@ def send_discord(current: dict, previous: dict | None):
         description = "No se encontraron solicitudes con los datos consultados."
 
     if previous is None:
-        title  = "📋 Primera consulta registrada"
-        color  = 0x3498db
+        title = "📋 Primera consulta registrada"
+        color = 0x3498db
     else:
-        title  = "🔔 ¡Cambio detectado en tu solicitud ITLA!"
-        color  = 0xe74c3c
+        title = "🔔 ¡Cambio detectado en tu solicitud ITLA!"
+        color = 0xe74c3c
 
     embed = {
         "title": title,
@@ -128,14 +130,17 @@ def main():
     print("Datos obtenidos:", json.dumps(current, ensure_ascii=False, indent=2)[:500])
 
     previous = load_last_state()
-
     current_hash  = hash_state(current)
     previous_hash = hash_state(previous) if previous else None
+
+    print(f"Hash anterior : {previous_hash}")
+    print(f"Hash actual   : {current_hash}")
 
     if current_hash != previous_hash:
         print("⚡ Cambio detectado. Enviando notificación...")
         send_discord(current, previous)
         save_state(current)
+        print("💾 Estado guardado en last_state.json")
     else:
         print("✔️  Sin cambios. No se envía notificación.")
 

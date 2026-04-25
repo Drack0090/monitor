@@ -1,4 +1,7 @@
 {
-  "raw": "Volver\nEstatus de Solicitud\nRevisa el estado de tus solicitudes en tiempo real\nIndique su forma de inscripción\nSolicitud por Convocatoria de Becas\nInscrito por Continuidad o Convenio\nConsultar\nNo hay solicitudes disponibles.\nCARGANDO...",
-  "solicitudes": []
+  "solicitudes": [
+    "Estado\nBeca No Otorgada",
+    "Comentario\nBeca no aprobada",
+    "Descargo\nPrueba diagnóstica no aprobada\nDocumentos inválidos\nCupos no disponibles"
+  ]
 }
